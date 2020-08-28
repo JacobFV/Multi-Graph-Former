@@ -44,6 +44,8 @@ class Directed_Edge_Update(tfkl.Layer):
         returns:
             updated edges tensor [..., src, dst, val]
         """
+        src_verts, dst_verts, edges, adj = inputs
+
         if not self._built:
             src_verts_shape = tf.shape(src_verts)
             dst_verts_shape = tf.shape(dst_verts)
@@ -52,9 +54,9 @@ class Directed_Edge_Update(tfkl.Layer):
 
         # vert-centric incoming neighbors
         vert_incoming = tf.einsum('...sd,...sv->...sdv', adj, src_verts)
-        # vert_incoming: [SAMPLE, src, dst, val]
+        # vert_incoming: [..., src, dst, val]
 
         vert_outgoing = tf.einsum('...sd,...dv->...sdv', adj, dst_verts)
-        # vert_outgoing: [SAMPLE, src, dst, val]
+        # vert_outgoing: [..., src, dst, val]
 
         return self.MLP(tf.concat([vert_incoming, vert_outgoing, edges], axis=-1))
