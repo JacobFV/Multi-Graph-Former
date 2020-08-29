@@ -13,7 +13,7 @@ class Language_WM_Graph_Former(WM_Graph_Former):
                  in_vocab_size,
                  d_emb,
                  out_vocab_size,
-                 out_length
+                 out_length,
                  **kwargs):
         super(Language_WM_Graph_Former, self).__init__(**kwargs)
 
@@ -23,16 +23,16 @@ class Language_WM_Graph_Former(WM_Graph_Former):
         self.d_emb = d_emb
         self.out_length = out_length
 
-    def call(inputs, **kwargs):
+    def call(self, inputs, **kwargs):
         """
         params:
             inputs: tensor [batch_shape, index].
                 tokenization should be prepadded so that
                 all elements are the same length.
-                eg: [[1,2,3,75,0],[2,4,565,2,6]]
+                eg: [[1,2,3,0,0],[2,4,565,2,6]]
 
         returns:
-            token softmax(logits) tensor [batch_shape, index, word]
+            token logits tensor [batch_shape, index, word]
         """
 
         batch_shape = inputs.shape[:-1]
@@ -43,7 +43,7 @@ class Language_WM_Graph_Former(WM_Graph_Former):
         O_verts = tf.zeros(batch_shape+(self.out_length, self.d_emb))
         O_edges = seq_edges(self.out_length, batch_shape)
 
-        O_verts = super(Language_WM_Graph_Former, self).call(**kwargs)
+        O_verts = super(Language_WM_Graph_Former, self).call(
+            inputs=((I_verts, I_edges), (O_verts, O_edges)), **kwargs)
 
-        logits = self.dec(O_verts)
-        return tf.nn.softmax(logits)
+        return self.dec(O_verts)
