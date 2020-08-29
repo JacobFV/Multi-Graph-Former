@@ -61,7 +61,7 @@ class Graph_Attention(tfkl.Layer):
 
         # Multihead Attention
         # generate queries
-        queries = self.query_nn(verts)
+        queries = self.query_layer(dst_verts)
         # queries: [SAMPLE, vert, query]
         # the vert indicated by axis:-2 should be interpretted as dst
 
@@ -69,16 +69,12 @@ class Graph_Attention(tfkl.Layer):
         vert_incoming = tf.einsum('...sd,...sv->...sdv', adj, src_verts)
         # vert_incoming: [..., src, dst, val]
 
-        # vert-centric incoming features
-        in_feat = tf.concat([vert_incoming, edges], axis=-1)
-        # in_feat: [SAMPLE, src, dst, features]
-        
         # generate keys
-        keys = self.key_nn(in_feat)
+        keys = self.key_layer(edges)
         # keys: [SAMPLE, src, dst, key]
 
         # generate values
-        vals = self.val_nn(in_feat)
+        vals = self.val_layer(tf.concat([vert_incoming, edges], axis=-1))
         # keys: [SAMPLE, src, dst, val]
         
         # compute attention weights from query-key dot-prod similarity
