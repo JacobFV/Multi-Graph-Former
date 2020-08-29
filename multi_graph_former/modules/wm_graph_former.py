@@ -1,8 +1,8 @@
 from ..layers import Graph_Multihead_Attention
-from ..layers import Directed_Edge_Update
+from ..layers import Edge_Update
 from ..layers import Smart_Update
 
-from ..utils import string2graph
+from ..utils import alive
 
 import tensorflow as tf
 tfk = tf.keras
@@ -33,8 +33,6 @@ class WM_Graph_Former(tfk.Model):
     """
 
     def __init__(self,
-                 d_O_vert,
-                 OG_edges,
                  max_WM_verts,
                  d_WM_verts=4,
                  d_WM_edges=4,
@@ -51,9 +49,11 @@ class WM_Graph_Former(tfk.Model):
                  **kwargs):
         super(WM_Graph_Former, self).__init__(**kwargs)
 
-        self.d_O_vert = d_O_vert
-        self.OG_edges = OG_edges
-        self.num_O_verts = tf.shape(OG_edges)[-2]
+        if d_I2WM_edges == -1:
+            d_I2WM_edges = d_WM_edges
+        if d_WM2O_edges == -1:
+            d_WM2O_edges = d_WM_edges
+
         self.max_WM_verts = max_WM_verts
         self.d_WM_verts = d_WM_verts
         self.d_WM_edges = d_WM_edges
@@ -68,48 +68,148 @@ class WM_Graph_Former(tfk.Model):
         self.d_key = d_key
         self.d_val = d_val
 
+        # for all smart update layers
+        self.update_bits = 4
+
         self._built = False
 
     def build(self, input_shape=None):
+        IG_shape, OG_shape = input_shape
+        I_verts_shape, I_edges_shape = IG_shape
+        O_verts_shape, O_edges_shape = OG_shape
 
+        # encoding
+        # IG self attention
+        self.I_verts_LN_layer = tfkl.LayerNormalization()
+        self.I_self_MHA_layer = Graph_Multihead_Attention(
+            num_heads=self.num_heads, d_key=self.d_key, d_val=self.d_val)
+        self.I_self_dense_layer = tfkl.Dense(I_verts_shape[-1] + self.update_bits)
+        self.I_self_update_layer = Smart_Update()
 
+        # update edges from IG to WMG
+        self.I2WM_edge_update_layer = Edge_Update()
 
-        self.IG2WMG_directed_edge_update
+        # WMG attends to IG
+        self.WM_verts_LN_layer = tfkl.LayerNormalization()
+        self.I2WM_MHA_layer = Graph_Multihead_Attention(
+            num_heads=self.num_heads, d_key=self.d_key, d_val=self.d_val)
+        self.I2WM_dense_layer = tfkl.Dense(self.d_WM_verts + self.update_bits)
+        self.I2WM_update_layer = Smart_Update()
 
-        # build WM root vert(s) graph
-        if self.num_WM_root_verts > 0:
+        # WMG self attention
+        self.WM_self_MHA_layer = Graph_Multihead_Attention(
+            num_heads=self.num_heads, d_key=self.d_key, d_val=self.d_val)
+        self.WM_self_dense_layer = tfkl.Dense(self.d_WM_verts + self.update_bits)
+        self.WM_self_update_layer = Smart_Update()
 
-        self.og_verts = tf.zeros(tf.shape(ig_verts)[:-2]+(self.num_O_verts, self.d_O_vert))
+        # update WMG internal edges
+        self.WM_edge_update_layer = Edge_Update()
+
+        # decoding
+        # update edges from WMG to OG
+        self.WM2O_edge_update_layer = Edge_Update()
+
+        # OG attends to WMG
+        self.O_verts_LN_layer = tfkl.LayerNormalization()
+        self.WM2O_MHA_layer = Graph_Multihead_Attention(
+            num_heads=self.num_heads, d_key=self.d_key, d_val=self.d_val)
+        self.WM2O_dense_layer = tfkl.Dense(O_verts_shape[-1] + self.update_bits)
+        self.WM2O_update_layer = Smart_Update()
+
+        # OG self attention
+        self.O_self_MHA_layer = Graph_Multihead_Attention(
+            num_heads=self.num_heads, d_key=self.d_key, d_val=self.d_val)
+        self.O_self_dense_layer = tfkl.Dense(O_verts_shape[-1] + self.update_bits)
+        self.O_self_update_layer = Smart_Update()
+        
+        self._built = True
 
     def call(self, inputs, T_stop_enc, T_start_dec, T_finish):
-        ig_verts, ig_edges = inputs
+        IG, OG = inputs
+        I_verts, I_edges = IG
+        O_verts, O_edges = OG
         
-        tf.shape(ig_verts)
         if not self._built:
-            self.build(tf.shape(ig_verts), tf.shape(ig_edges))
+            self.build(((I_verts.shape, I_edges.shape),
+                        (O_verts.shape, O_edges.shape)))
+            
+        batch_size = I_verts.shape[:-2]
+        
+        WM_verts = tf.zeros(batch_size + (self.max_WM_verts, self.d_WM_verts))
+        WM_verts[...,0,:] = tf.ones(I_verts.shape[-2:]) #seed the graph
 
-        self.og_verts.assign(tf.zeros_like(self.og_verts))
+        I2WM_edges = tf.zeros(batch_size + 
+            (I_verts.shape[-2], self.max_WM_verts, self.d_I2WM_edges))
+        WM_edges = tf.zeros(batch_size + 
+            (self.max_WM_verts, self.max_WM_verts, self.d_WM_edges))
+        WM2O_edges = tf.zeros(batch_size + 
+            (self.max_WM_verts, O_verts.shape[-2], self.d_WM2O_edges))
+
+        I_adj = alive(I_edges)
+        I2WM_adj = alive(I2WM_edges)
+        WM_adj = alive(WM_edges)
+        WM2O_adj = alive(WM2O_edges)
+        O_adj = alive(O_edges)
+
+        # root vert graphs
+        if self.num_WM_root_verts > 0:
+            raise NotImplementedError()
 
         for hidden_layer in tf.range(T_finish):
 
             # encoding
             if hidden_layer < T_stop_enc:
+
                 # IG self attention
+                I_verts_ = self.I_verts_LN_layer(I_verts)
+                I_verts_ = self.I_self_MHA_layer((I_verts_, I_verts_, I_edges, I_adj))
+                I_verts_ = self.I_self_dense_layer(I_verts_)
+                I_verts = self.I_self_update_layer((I_verts, I_verts_[self.update_bits:], I_verts_))
 
                 # update edges from IG to WMG
+                I2WM_edges = self.I2WM_edge_update_layer((I_verts, WM_verts, I2WM_edges, I2WM_adj))
+                I2WM_adj = alive(I2WM_edges)
 
                 # WMG attends to IG
+                WM_verts_ = self.WM_verts_LN_layer(WM_verts)
+                WM_verts_ = self.I2WM_MHA_layer((I_verts, WM_verts_, I2WM_edges, I2WM_adj))
+                WM_verts_ = self.I2WM_dense_layer(WM_verts_)
+                WM_verts = self.I2WM_update_layer((WM_verts, WM_verts_[self.update_bits:], WM_verts_))
 
                 # WMG self attention
+                WM_verts_ = self.WM_verts_LN_layer(WM_verts)
+                WM_verts_ = self.WM_self_MHA_layer((WM_verts_, WM_verts_, WM_edges, WM_adj))
+                WM_verts_ = self.WM_self_dense_layer(WM_verts_)
+                WM_verts = self.WM_self_update_layer((WM_verts, WM_verts_[self.update_bits:], WM_verts_))
 
                 # update WMG internal edges
+                WM_edges = self.WM_edge_update_layer((WM_verts, WM_verts, WM_edges, WM_adj))
+                WM_adj = alive(WM_edges)
+
+                # TODO
+                # WM_vert_penalty=0.1,
+                # WM_edge_penalty=0.02,
+                # I2WM_edge_penalty=0.03,
 
             # decoding
             if hidden_layer >= T_start_dec:
                 # update edges from WMG to OG
+                WM2O_edges = self.WM2O_edge_update_layer((WM_verts, O_verts, WM2O_edges, WM2O_adj))
+                WM2O_adj = alive(WM2O_edges)
 
                 # OG attends to WMG
+                O_verts_ = self.O_verts_LN_layer(O_verts)
+                O_verts_ = self.WM2O_MHA_layer((WM_verts, O_verts_, WM2O_edges, WM2O_adj))
+                O_verts_ = self.WM2O_dense_layer(O_verts_)
+                O_verts = self.WM2O_update_layer((O_verts, O_verts_[self.update_bits:], O_verts_))
 
                 # OG self attention
+                O_verts_ = self.O_verts_LN_layer(O_verts)
+                O_verts_ = self.O_self_MHA_layer((O_verts_, O_verts_, O_edges, O_adj))
+                O_verts_ = self.O_self_dense_layer(O_verts_)
+                O_verts = self.O_self_update_layer((O_verts, O_verts_[self.update_bits:], O_verts_))
         
-        return og_verts
+                # TODO
+                # WM2O_edge_penalty=0.03,
+
+        return O_verts

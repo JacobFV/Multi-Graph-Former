@@ -2,11 +2,11 @@ import tensorflow as tf
 tfk = tf.keras
 tfkl = tfk.layers
 
-class Directed_Edge_Update(tfkl.Layer):
+class Edge_Update(tfkl.Layer):
 
     def __init__(self,
                  **kwargs):
-        super(Directed_Edge_Update, self).__init__(**kwargs)
+        super(Edge_Update, self).__init__(**kwargs)
         
         self._built = False
 

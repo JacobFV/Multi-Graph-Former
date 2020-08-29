@@ -46,6 +46,6 @@ class Smart_Update(tfkl.Layer):
             raise f'`len(inputs)` != 2 or 3'
 
         preprocessed_data = self.preprocessor_nn(data)
-        weighted_updates = updates * self.updates_weight_layer(preprocessed_data)
+        weighted_write_val = updates * self.updates_weight_layer(preprocessed_data)
         partially_erased = origonal * self.erase_weight_layer(preprocessed_data)
         return partially_erased + weighted_write_val
