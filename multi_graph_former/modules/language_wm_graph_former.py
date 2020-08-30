@@ -26,7 +26,7 @@ class Language_WM_Graph_Former(WM_Graph_Former):
     def call(self, inputs, **kwargs):
         """
         params:
-            inputs: tensor [batch_shape, index].
+            inputs: batch of tokenized strings tensor [batch_shape, index].
                 tokenization should be prepadded so that
                 all elements are the same length.
                 eg: [[1,2,3,0,0],[2,4,565,2,6]]

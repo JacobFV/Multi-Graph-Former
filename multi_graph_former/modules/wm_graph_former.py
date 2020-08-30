@@ -42,7 +42,7 @@ class WM_Graph_Former(tfk.Model):
                  WM_edge_penalty=0.02,
                  I2WM_edge_penalty=0.03,
                  WM2O_edge_penalty=0.03,
-                 num_WM_root_verts=1,
+                 num_WM_root_verts=0,
                  num_heads=8,
                  d_key=8,
                  d_val=16,
