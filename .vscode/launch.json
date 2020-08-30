@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "name": "Language WM Graph Former Test",
+            "type": "python",
+            "request": "launch",
+            "module": "multi_graph_former.modules.language_wm_graph_former",
+            "console": "internalConsole"
+        }
+    ]
+}
