@@ -124,7 +124,7 @@ class WM_Graph_Former(tfk.Model):
         
         self._built = True
 
-    def call(self, inputs, T_stop_enc, T_start_dec, T_finish):
+    def call(self, inputs, T_stop_enc=20, T_start_dec=10, T_finish=30, training=False):
         IG, OG = inputs
         I_verts, I_edges = IG
         O_verts, O_edges = OG
@@ -135,8 +135,10 @@ class WM_Graph_Former(tfk.Model):
             
         batch_size = I_verts.shape[:-2]
         
-        WM_verts = tf.zeros(batch_size + (self.max_WM_verts, self.d_WM_verts))
-        WM_verts[...,0,:] = tf.ones(I_verts.shape[-2:]) #seed the graph
+        WM_verts = tf.concat([
+            tf.ones(batch_size + (1, self.d_WM_verts)), #seed the graph
+            tf.zeros(batch_size + (self.max_WM_verts-1, self.d_WM_verts))
+        ], axis=-2)
 
         I2WM_edges = tf.zeros(batch_size + 
             (I_verts.shape[-2], self.max_WM_verts, self.d_I2WM_edges))

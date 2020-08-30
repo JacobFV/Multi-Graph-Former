@@ -1,6 +1,7 @@
 import tensorflow as tf
+import numpy as np
 
-def alive(self, tensor, threshold=0.15, c=2):
+def alive(tensor, threshold=0.15, c=2):
     """qualifies the tensor as alive or dead. 
     The formula makes even a one hot encoding considered alive
 
@@ -15,11 +16,10 @@ def alive(self, tensor, threshold=0.15, c=2):
     returns:
         rank(tensor)-1 tensor with elements values in {0}\\cup[threshold, 1)
     """
-    tensor = tf.tanh( c * tf.norm(tensor, axis=-1) / tf.sqrt(tf.shape(tensor)[-1]) )
+    tensor = tf.tanh( c * tf.norm(tensor, axis=-1) / np.sqrt(tf.shape(tensor)[-1]) )
     return tf.where(tensor > threshold, tensor, tf.zeros_like(tensor))
 
-def seq_edges(self,
-              length,
+def seq_edges(length,
               batch_shape=(1,),
               forward_indicator=tf.constant([1., 0.]),
               backward_indicator=tf.constant([0., 1.])):
@@ -33,6 +33,7 @@ def seq_edges(self,
         edges tensor: [..., string_index, string_index, 2]
     """
 
+    print('diag from',length, batch_shape)
     diag = tf.eye(
         num_rows=length+1,
         num_columns=length+1,
