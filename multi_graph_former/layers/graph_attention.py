@@ -78,9 +78,9 @@ class Graph_Attention(tfkl.Layer):
         # keys: [SAMPLE, src, dst, val]
         
         # compute attention weights from query-key dot-prod similarity
-        att_ws = tf.einsum('...k,...k->...', queries, keys)
+        att_ws = tf.einsum('...dk,...sdk->...sd', queries, keys)
         num_src_verts = tf.shape(src_verts)[-2]
-        att_ws = tf.nn.softmax(att_ws / tf.sqrt(num_src_verts))
+        att_ws = tf.nn.softmax(att_ws / tf.sqrt(tf.cast(num_src_verts, tf.float32)))
         # att_ws: [..., src, dst]
 
         # apply attention to vert-centric values

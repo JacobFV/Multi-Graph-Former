@@ -11,7 +11,7 @@ class Edge_Update(tfkl.Layer):
         self._built = False
 
     def build(self, input_shape):
-        src_verts_shape, dst_verts_shape, edges_shape = input_shape
+        src_verts_shape, dst_verts_shape, edges_shape, adj_shape = input_shape
 
         num_src_verts = src_verts_shape[-2]
         num_dst_verts = dst_verts_shape[-2]
@@ -22,8 +22,8 @@ class Edge_Update(tfkl.Layer):
 
         assert num_src_verts == edges_shape[-3] \
             and num_dst_verts == edges_shape[-2]
+        assert adj_shape == edges_shape[:-1]
         
-
         self.MLP = tfk.Sequential([
             tfkl.Dense(d_src_vert + d_dst_vert + d_edge,
                 tf.nn.swish, use_bias=False),
@@ -47,10 +47,7 @@ class Edge_Update(tfkl.Layer):
         src_verts, dst_verts, edges, adj = inputs
 
         if not self._built:
-            src_verts_shape = tf.shape(src_verts)
-            dst_verts_shape = tf.shape(dst_verts)
-            edges_shape = tf.shape(edges)
-            self.build((src_verts_shape, dst_verts_shape, edges_shape))
+            self.build((src_verts.shape, dst_verts.shape, edges.shape, adj.shape))
 
         # vert-centric incoming neighbors
         vert_incoming = tf.einsum('...sd,...sv->...sdv', adj, src_verts)

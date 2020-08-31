@@ -60,7 +60,7 @@ languagae_wm_graph_former = Language_WM_Graph_Former(
     in_vocab_size=tokenizer_en.vocab_size,
     out_vocab_size=tokenizer_en.vocab_size,
     d_emb=50,
-    out_length=max_length-1,
+    out_length=max_length,
     max_WM_verts=10,
     d_WM_verts=10
 )

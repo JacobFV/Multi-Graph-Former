@@ -128,7 +128,7 @@ class WM_Graph_Former(tfk.Model):
         IG, OG = inputs
         I_verts, I_edges = IG
         O_verts, O_edges = OG
-        
+
         if not self._built:
             self.build(((I_verts.shape, I_edges.shape),
                         (O_verts.shape, O_edges.shape)))
@@ -161,31 +161,38 @@ class WM_Graph_Former(tfk.Model):
 
             # encoding
             if hidden_layer < T_stop_enc:
-
                 # IG self attention
                 I_verts_ = self.I_verts_LN_layer(I_verts)
                 I_verts_ = self.I_self_MHA_layer((I_verts_, I_verts_, I_edges, I_adj))
                 I_verts_ = self.I_self_dense_layer(I_verts_)
-                I_verts = self.I_self_update_layer((I_verts, I_verts_[self.update_bits:], I_verts_))
+                I_verts = self.I_self_update_layer(
+                    (I_verts, I_verts_[..., self.update_bits:], I_verts_))
 
                 # update edges from IG to WMG
-                I2WM_edges = self.I2WM_edge_update_layer((I_verts, WM_verts, I2WM_edges, I2WM_adj))
+                I2WM_edges = self.I2WM_edge_update_layer(
+                    (I_verts, WM_verts, I2WM_edges, I2WM_adj))
                 I2WM_adj = alive(I2WM_edges)
 
                 # WMG attends to IG
                 WM_verts_ = self.WM_verts_LN_layer(WM_verts)
-                WM_verts_ = self.I2WM_MHA_layer((I_verts, WM_verts_, I2WM_edges, I2WM_adj))
+                WM_verts_ = self.I2WM_MHA_layer(
+                    (I_verts, WM_verts_, I2WM_edges, I2WM_adj))
                 WM_verts_ = self.I2WM_dense_layer(WM_verts_)
-                WM_verts = self.I2WM_update_layer((WM_verts, WM_verts_[self.update_bits:], WM_verts_))
+                print(WM_verts.shape, WM_verts_.shape)
+                WM_verts = self.I2WM_update_layer(
+                    (WM_verts, WM_verts_[..., self.update_bits:], WM_verts_))
 
                 # WMG self attention
                 WM_verts_ = self.WM_verts_LN_layer(WM_verts)
-                WM_verts_ = self.WM_self_MHA_layer((WM_verts_, WM_verts_, WM_edges, WM_adj))
+                WM_verts_ = self.WM_self_MHA_layer(
+                    (WM_verts_, WM_verts_, WM_edges, WM_adj))
                 WM_verts_ = self.WM_self_dense_layer(WM_verts_)
-                WM_verts = self.WM_self_update_layer((WM_verts, WM_verts_[self.update_bits:], WM_verts_))
+                WM_verts = self.WM_self_update_layer(
+                    (WM_verts, WM_verts_[..., self.update_bits:], WM_verts_))
 
                 # update WMG internal edges
-                WM_edges = self.WM_edge_update_layer((WM_verts, WM_verts, WM_edges, WM_adj))
+                WM_edges = self.WM_edge_update_layer(
+                    (WM_verts, WM_verts, WM_edges, WM_adj))
                 WM_adj = alive(WM_edges)
 
                 # TODO
@@ -196,20 +203,25 @@ class WM_Graph_Former(tfk.Model):
             # decoding
             if hidden_layer >= T_start_dec:
                 # update edges from WMG to OG
-                WM2O_edges = self.WM2O_edge_update_layer((WM_verts, O_verts, WM2O_edges, WM2O_adj))
+                WM2O_edges = self.WM2O_edge_update_layer(
+                    (WM_verts, O_verts, WM2O_edges, WM2O_adj))
                 WM2O_adj = alive(WM2O_edges)
 
                 # OG attends to WMG
                 O_verts_ = self.O_verts_LN_layer(O_verts)
-                O_verts_ = self.WM2O_MHA_layer((WM_verts, O_verts_, WM2O_edges, WM2O_adj))
+                O_verts_ = self.WM2O_MHA_layer(
+                    (WM_verts, O_verts_, WM2O_edges, WM2O_adj))
                 O_verts_ = self.WM2O_dense_layer(O_verts_)
-                O_verts = self.WM2O_update_layer((O_verts, O_verts_[self.update_bits:], O_verts_))
+                O_verts = self.WM2O_update_layer(
+                    (O_verts, O_verts_[..., self.update_bits:], O_verts_))
 
                 # OG self attention
                 O_verts_ = self.O_verts_LN_layer(O_verts)
-                O_verts_ = self.O_self_MHA_layer((O_verts_, O_verts_, O_edges, O_adj))
+                O_verts_ = self.O_self_MHA_layer(
+                    (O_verts_, O_verts_, O_edges, O_adj))
                 O_verts_ = self.O_self_dense_layer(O_verts_)
-                O_verts = self.O_self_update_layer((O_verts, O_verts_[self.update_bits:], O_verts_))
+                O_verts = self.O_self_update_layer(
+                    (O_verts, O_verts_[..., self.update_bits:], O_verts_))
         
                 # TODO
                 # WM2O_edge_penalty=0.03,

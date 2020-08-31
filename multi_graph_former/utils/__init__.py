@@ -33,15 +33,12 @@ def seq_edges(length,
         edges tensor: [..., string_index, string_index, 2]
     """
 
-    print('diag from',length, batch_shape)
     diag = tf.eye(
         num_rows=length+1,
         num_columns=length+1,
         batch_shape=batch_shape
     )
-    forward_edges = diag[..., 1:, :-1, :]
-    forward_edges = tf.einsum('...ij,k->...ijk', forward_edges, forward_indicator)
-    backward_edges = diag[..., :-1, 1:, :]
-    backward_edges = tf.einsum('...ij,k->...ijk', backward_edges, forward_indicator)
+    forward_edges = diag[..., 1:, :-1, None] * forward_indicator
+    backward_edges = diag[..., :-1, 1:, None] * backward_indicator
 
-    return tf.constant(forward_edges + backward_edges)
+    return forward_edges + backward_edges
