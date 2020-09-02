@@ -178,7 +178,6 @@ class WM_Graph_Former(tfk.Model):
                 WM_verts_ = self.I2WM_MHA_layer(
                     (I_verts, WM_verts_, I2WM_edges, I2WM_adj))
                 WM_verts_ = self.I2WM_dense_layer(WM_verts_)
-                print(WM_verts.shape, WM_verts_.shape)
                 WM_verts = self.I2WM_update_layer(
                     (WM_verts, WM_verts_[..., self.update_bits:], WM_verts_))
 

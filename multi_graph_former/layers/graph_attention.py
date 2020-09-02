@@ -54,41 +54,45 @@ class Graph_Attention(tfkl.Layer):
         src_verts, dst_verts, edges, adj = inputs
 
         if not self._built:
-            src_verts_shape = tf.shape(src_verts)
-            dst_verts_shape = tf.shape(dst_verts)
-            edges_shape = tf.shape(edges)
-            self.build((src_verts_shape, dst_verts_shape, edges_shape))
+            self.build((src_verts.shape, dst_verts.shape, edges.shape, adj.shape))
 
         # Multihead Attention
         # generate queries
         queries = self.query_layer(dst_verts)
+        print('Q\'s',queries.shape)
         # queries: [SAMPLE, vert, query]
         # the vert indicated by axis:-2 should be interpretted as dst
 
         # vert-centric incoming neighbors
         vert_incoming = tf.einsum('...sd,...sv->...sdv', adj, src_verts)
+        print('vert incoming',vert_incoming.shape)
         # vert_incoming: [..., src, dst, val]
 
         # generate keys
         keys = self.key_layer(edges)
+        print('keys',keys.shape)
         # keys: [SAMPLE, src, dst, key]
 
         # generate values
         vals = self.val_layer(tf.concat([vert_incoming, edges], axis=-1))
+        print('vals',vals.shape)
         # keys: [SAMPLE, src, dst, val]
         
         # compute attention weights from query-key dot-prod similarity
         att_ws = tf.einsum('...dk,...sdk->...sd', queries, keys)
         num_src_verts = tf.shape(src_verts)[-2]
         att_ws = tf.nn.softmax(att_ws / tf.sqrt(tf.cast(num_src_verts, tf.float32)))
+        print('att_ws',att_ws.shape)
         # att_ws: [..., src, dst]
 
         # apply attention to vert-centric values
         weighted_vs = tf.einsum('...,...v->...v', att_ws, vals)
+        print('weighted_vs',weighted_vs.shape)
         # att_vs: [..., src, dst, weighted-val]
 
         # pool attended values and merge heads
-        att_vs = tf.reduce_sum(weighted_vs, axis=-2)
+        att_vs = tf.reduce_sum(weighted_vs, axis=-3)
+        print('att_vs',att_vs.shape)
         # att_vs: [..., dst, pooled attended vals]
 
         return att_vs
